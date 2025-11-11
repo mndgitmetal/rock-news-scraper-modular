@@ -4,8 +4,9 @@ Scraper específico para Blabbermouth.net
 import sys
 import os
 
-# Adiciona o diretório shared ao path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../shared'))
+# Adiciona o diretório raiz do projeto ao path para importar shared
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
+sys.path.insert(0, project_root)
 
 import requests
 from bs4 import BeautifulSoup

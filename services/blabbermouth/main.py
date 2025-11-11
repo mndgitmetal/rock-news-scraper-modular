@@ -4,10 +4,32 @@ Cada execução: coleta -> traduz -> publica
 """
 import sys
 import os
+
+# Workaround para Python 3.9.6 - corrige erro do importlib.metadata
+# Deve ser aplicado ANTES de qualquer outro import
+try:
+    import importlib_metadata
+    # Substitui importlib.metadata pelo backport
+    sys.modules['importlib.metadata'] = importlib_metadata
+except ImportError:
+    # Se importlib_metadata não estiver disponível, tenta usar o nativo
+    try:
+        import importlib.metadata
+        if not hasattr(importlib.metadata, 'packages_distributions'):
+            # Se não tiver o atributo, tenta usar o backport
+            try:
+                import importlib_metadata
+                sys.modules['importlib.metadata'] = importlib_metadata
+            except ImportError:
+                pass
+    except ImportError:
+        pass
+
 from dotenv import load_dotenv
 
-# Adiciona shared ao path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../shared'))
+# Adiciona o diretório raiz do projeto ao path para importar shared
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
+sys.path.insert(0, project_root)
 
 from fastapi import FastAPI, BackgroundTasks
 from shared.config import logger
@@ -17,7 +39,15 @@ from shared.wordpress import WordPressPublisher
 from scraper import BlabbermouthScraper
 
 # Carrega variáveis de ambiente
-load_dotenv()
+# Primeiro carrega .env, depois .env.local (sobrescreve valores)
+# Sempre procura no diretório raiz do projeto
+env_path = os.path.join(project_root, '.env')
+env_local_path = os.path.join(project_root, '.env.local')
+
+if os.path.exists(env_path):
+    load_dotenv(dotenv_path=env_path)
+if os.path.exists(env_local_path):
+    load_dotenv(dotenv_path=env_local_path, override=True)  # override=True sobrescreve valores
 
 app = FastAPI(title="Blabbermouth Scraper", version="1.0.0")
 
@@ -86,4 +116,11 @@ def health():
 if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", "8080"))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    # Configuração do uvicorn para exibir logs detalhados
+    uvicorn.run(
+        app, 
+        host="0.0.0.0", 
+        port=port,
+        log_level="info",
+        access_log=True
+    )
